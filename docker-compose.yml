@@ -1,0 +1,49 @@
+version: "3"
+
+services:
+  consul-server-leader:
+    image: consul:1.7.1
+    container_name: consul-server-leader
+    command: "agent -server -bootstrap -ui -node=consul-server-leader -client=0.0.0.0"
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+    ports:
+      - "8500:8500"
+    networks:
+      - microservice
+
+  provider-1:
+    build:
+      context: ./provider
+    container_name: "provider-1"
+    command: "php bin/hyperf.php start"
+    depends_on:
+      - "consul-server-leader"
+    volumes:
+      - ./provider:/opt/www
+    networks:
+      - microservice
+    tty: true
+
+  consumer:
+    build:
+      context: ./consumer
+    container_name: "consumer"
+    command: "php bin/hyperf.php start"
+    depends_on:
+      - "provider-1"
+    volumes:
+      - ./consumer:/opt/www
+    ports:
+      - "9501:9501"
+    networks:
+      - microservice
+    tty: true
+
+networks:
+  microservice:
+    driver: bridge
+
+volumes:
+  microservice:
+    driver: local
