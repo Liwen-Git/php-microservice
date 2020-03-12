@@ -4,6 +4,7 @@
 namespace App\Rpc;
 
 use App\Model\Prize;
+use App\Model\Winner;
 use Hyperf\RpcServer\Annotation\RpcService;
 
 /**
@@ -29,13 +30,54 @@ class LotteryService
         return $prize->toArray();
     }
 
-    public function lotteryWithoutGo()
+    public function lotteryWithoutGo(int $prizeId, int $userId)
     {
+        /**
+         * @var Prize $prize
+         */
+        $prize = Prize::query()->find($prizeId);
+        if ($prize->num > 0) {
+            $prize->num -= 1;
+            $prize->save();
 
+            $winner = new Winner();
+            $winner->prize_id = $prizeId;
+            $winner->user_id = $userId;
+            $winner->save();
+
+            return $winner->toArray();
+        } else {
+            return '奖品已发完!';
+        }
     }
 
-    public function lotteryWithGo()
+    public function lotteryWithGo(int $prizeId, int $userId)
     {
+        /**
+         * @var Prize $prize
+         */
+        $prize = Prize::query()->find($prizeId);
+        if ($prize->num > 0) {
+            $result = parallel([
+                function() use($prize) {
+                    $prize->num -= 1;
+                    $prize->save();
 
+                    return $prize->toArray();
+                },
+                function() use($prizeId, $userId) {
+                    $winner = new Winner();
+                    $winner->prize_id = $prizeId;
+                    $winner->user_id = $userId;
+                    $winner->save();
+
+                    return $winner->toArray();
+                }
+            ]);
+
+            return $result;
+        } else {
+            return '奖品已发完!';
+        }
     }
 }

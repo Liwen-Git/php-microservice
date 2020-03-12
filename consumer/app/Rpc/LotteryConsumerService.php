@@ -16,4 +16,14 @@ class LotteryConsumerService extends AbstractServiceClient
     {
         return $this->__request(__FUNCTION__, []);
     }
+
+    public function lotteryWithoutGo(int $prizeId, int $userId)
+    {
+        return $this->__request(__FUNCTION__, compact('prizeId', 'userId'));
+    }
+
+    public function lotteryWithGo(int $prizeId, int $userId)
+    {
+        return $this->__request(__FUNCTION__, compact('prizeId', 'userId'));
+    }
 }
