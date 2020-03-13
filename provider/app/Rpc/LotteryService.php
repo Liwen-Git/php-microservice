@@ -6,6 +6,8 @@ namespace App\Rpc;
 use App\Model\Prize;
 use App\Model\Winner;
 use Hyperf\RpcServer\Annotation\RpcService;
+use Hyperf\Utils\ApplicationContext;
+use Redis;
 
 /**
  * Class LotteryService
@@ -24,21 +26,26 @@ class LotteryService
             $name .= iconv('GB2312', 'UTF-8', $item);
         }
         $prize->name = $name;
-        $prize->num = 10000;
+        $prize->num = 5000;
         $prize->save();
+
+        $container = ApplicationContext::getContainer();
+        $redis = $container->get(Redis::class);
+        for ($i = 0; $i < $prize->num; $i++) {
+            $redis->lPush('lottery_prize_num', 1);
+        }
 
         return $prize->toArray();
     }
 
     public function lotteryWithoutGo(int $prizeId, int $userId)
     {
-        /**
-         * @var Prize $prize
-         */
-        $prize = Prize::query()->find($prizeId);
-        if ($prize->num > 0) {
-            $prize->num -= 1;
-            $prize->save();
+        $container = ApplicationContext::getContainer();
+        $redis = $container->get(Redis::class);
+        $count = $redis->lPop('lottery_prize_num');
+
+        if ($count) {
+            Prize::query()->find($prizeId)->decrement('num');
 
             $winner = new Winner();
             $winner->prize_id = $prizeId;
@@ -53,15 +60,16 @@ class LotteryService
 
     public function lotteryWithGo(int $prizeId, int $userId)
     {
-        /**
-         * @var Prize $prize
-         */
-        $prize = Prize::query()->find($prizeId);
-        if ($prize->num > 0) {
+        $container = ApplicationContext::getContainer();
+        $redis = $container->get(Redis::class);
+        $count = $redis->lPop('lottery_prize_num');
+        if ($count) {
             $result = parallel([
-                function() use($prize) {
-                    $prize->num -= 1;
-                    $prize->save();
+                function() use($prizeId) {
+                    /**
+                     * @var Prize $prize
+                     */
+                    $prize = Prize::query()->find($prizeId)->decrement('num');
 
                     return $prize->toArray();
                 },
